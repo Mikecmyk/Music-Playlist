@@ -10,13 +10,14 @@ const songTitle = document.querySelector(".song-details .title");
 const songArtist = document.querySelector(".song-details .artist");
 const songCover = document.querySelector(".song-info img");
 
-const playPauseBtn = document.querySelector(".control-buttons button:nth-child(2)");
-const prevBtn = document.querySelector(".control-buttons button:nth-child(1)");
-const nextBtn = document.querySelector(".control-buttons button:nth-child(3)");
-const progressBar = document.querySelector(".progress-bar input");
-const currentTimeEl = document.querySelector(".progress-bar span:nth-child(1)");
-const durationEl = document.querySelector(".progress-bar span:nth-child(3)");
-const volumeSlider = document.querySelector(".volume input");
+// Corrected button and input selections
+const playPauseBtn = document.getElementById("play-pause-btn");
+const prevBtn = document.getElementById("prev-btn");
+const nextBtn = document.getElementById("next-btn");
+const progressBar = document.getElementById("progress-bar");
+const currentTimeEl = document.getElementById("current-time");
+const durationEl = document.getElementById("duration");
+const volumeSlider = document.getElementById("volume-slider");
 
 const homeLink = document.querySelector(".nav-links a.home-link");
 const likedSongsLink = document.querySelector(".nav-links a.liked-songs-link");
@@ -40,10 +41,24 @@ const profileWelcomeName = document.getElementById("profile-welcome-name");
 const topArtistsContainer = document.querySelector("#profile-view .artist-list");
 const settingsVolumeControl = document.getElementById("volume-control");
 
+// New Sign-up elements
+const showSignupLink = document.getElementById("show-signup-link");
+const showLoginLink = document.getElementById("show-login-link");
+const loginFormContainer = document.getElementById("login-form-container");
+const signupFormContainer = document.getElementById("signup-form-container");
+const signupForm = document.getElementById("signup-form");
+const signupUsernameInput = document.getElementById("signup-username");
+const signupPasswordInput = document.getElementById("signup-password");
+const signupErrorMessage = document.getElementById("signup-error-message");
+
 // View Elements
 const homeView = document.getElementById("home-view");
 const profileView = document.getElementById("profile-view");
 const settingsView = document.getElementById("settings-view");
+
+// Responsive Elements
+const sidebar = document.getElementById("sidebar");
+const hamburgerMenu = document.getElementById("hamburger-menu");
 
 // 2. Global State
 let songs = [];
@@ -54,6 +69,16 @@ let activeMenu = null;
 let loggedInUser = null;
 
 // 3. API & Data Handling Functions
+
+// New function to create a user-specific key
+function getUserStorageKey(key) {
+    if (!loggedInUser) {
+        console.error("No user logged in. Cannot create user-specific key.");
+        return key;
+    }
+    return `${loggedInUser}_${key}`;
+}
+
 async function fetchSongsFromAPI(query) {
     try {
         playlistsContainer.innerHTML = '<p style="text-align: center; margin-top: 50px;">Searching for songs...</p>';
@@ -68,16 +93,20 @@ async function fetchSongsFromAPI(query) {
     }
 }
 
+// Update getSongsFromLocalStorage to use the user-specific key
 function getSongsFromLocalStorage(key) {
-    const storedSongs = localStorage.getItem(key);
+    const userKey = getUserStorageKey(key);
+    const storedSongs = localStorage.getItem(userKey);
     return storedSongs ? JSON.parse(storedSongs) : [];
 }
 
+// Update saveSongToLocalStorage to use the user-specific key
 function saveSongToLocalStorage(key, song) {
+    const userKey = getUserStorageKey(key);
     const storedSongs = getSongsFromLocalStorage(key);
     if (!storedSongs.some(s => s.trackId === song.trackId)) {
         storedSongs.push(song);
-        localStorage.setItem(key, JSON.stringify(storedSongs));
+        localStorage.setItem(userKey, JSON.stringify(storedSongs));
         const viewName = key === 'likedSongs' ? 'Liked Songs' : 'Library';
         alert(`${song.trackName} has been added to your ${viewName}!`);
     } else {
@@ -86,10 +115,12 @@ function saveSongToLocalStorage(key, song) {
     }
 }
 
+// Update removeSongFromLocalStorage to use the user-specific key
 function removeSongFromLocalStorage(key, trackId) {
+    const userKey = getUserStorageKey(key);
     const storedSongs = getSongsFromLocalStorage(key);
     const updatedSongs = storedSongs.filter(song => song.trackId !== trackId);
-    localStorage.setItem(key, JSON.stringify(updatedSongs));
+    localStorage.setItem(userKey, JSON.stringify(updatedSongs));
     
     if (currentView === 'likedSongs' && key === 'likedSongs') {
         songs = updatedSongs;
@@ -105,7 +136,8 @@ function savePlaybackState() {
         const state = {
             trackId: songs[currentSongIndex].trackId,
             currentTime: audio.currentTime,
-            currentView: currentView
+            currentView: currentView,
+            user: loggedInUser
         };
         localStorage.setItem('playbackState', JSON.stringify(state));
     }
@@ -117,6 +149,11 @@ async function loadPlaybackState() {
         const state = JSON.parse(savedState);
         const savedTrackId = state.trackId;
         
+        // Only load if the saved state belongs to the current user
+        if (state.user !== loggedInUser) {
+            return;
+        }
+
         if (state.currentView === 'likedSongs') {
             currentView = 'likedSongs';
             songs = getSongsFromLocalStorage('likedSongs');
@@ -140,6 +177,17 @@ async function loadPlaybackState() {
             pauseSong();
         }
     }
+}
+
+function saveUserCredentials(username, password) {
+    const users = JSON.parse(localStorage.getItem('users')) || {};
+    users[username] = password;
+    localStorage.setItem('users', JSON.stringify(users));
+}
+
+function getUserCredentials(username) {
+    const users = JSON.parse(localStorage.getItem('users')) || {};
+    return users[username];
 }
 
 // 4. UI Rendering Functions
@@ -387,128 +435,177 @@ playPauseBtn.addEventListener("click", () => {
 
 nextBtn.addEventListener("click", nextSong);
 prevBtn.addEventListener("click", prevSong);
-
-progressBar.addEventListener("input", () => {
-    const seekTime = (progressBar.value / 100) * audio.duration;
-    audio.currentTime = seekTime;
-});
-
 audio.addEventListener("timeupdate", updateProgressBar);
 audio.addEventListener("ended", nextSong);
 
-volumeSlider.addEventListener("input", () => {
-    audio.volume = volumeSlider.value / 100;
+progressBar.addEventListener("change", (e) => {
+    const seekTime = (e.target.value / 100) * audio.duration;
+    audio.currentTime = seekTime;
 });
 
-// Profile and view switching event listeners
-profileBtn.addEventListener('click', (event) => {
-    event.stopPropagation();
-    profileMenu.classList.toggle('show');
+volumeSlider.addEventListener("input", (e) => {
+    audio.volume = e.target.value / 100;
 });
 
-document.addEventListener('click', () => {
-    profileMenu.classList.remove('show');
-});
-
-profileMenu.addEventListener('click', (event) => {
-    event.stopPropagation();
-});
-
-profileLink.addEventListener('click', () => {
-    profileMenu.classList.remove('show');
-    renderProfile();
-});
-
-settingsLink.addEventListener('click', () => {
-    profileMenu.classList.remove('show');
-    renderSettings();
-});
-
-logoutBtn.addEventListener('click', () => {
-    // Stop the music when the user logs out
-    audio.pause();
-    isPlaying = false;
-    playPauseBtn.textContent = "▶";
-
-    localStorage.removeItem('loggedInUser');
-    localStorage.removeItem('playbackState');
-    checkLoginStatus();
-});
-
-loginForm.addEventListener('submit', (event) => {
+// Sidebar and Navigation
+homeLink.addEventListener("click", (event) => {
     event.preventDefault();
-    
+    mainTitle.textContent = "Good Evening";
+    currentView = 'home';
+    fetchSongsFromAPI("Ed Sheeran"); // Load default songs
+    showView("home-view");
+});
+
+likedSongsLink.addEventListener("click", (event) => {
+    event.preventDefault();
+    mainTitle.textContent = "Liked Songs";
+    currentView = 'likedSongs';
+    songs = getSongsFromLocalStorage('likedSongs');
+    renderPlaylists(songs);
+    showView("home-view");
+});
+
+libraryLink.addEventListener("click", (event) => {
+    event.preventDefault();
+    mainTitle.textContent = "Your Library";
+    currentView = 'library';
+    songs = getSongsFromLocalStorage('myMusicLibrary');
+    renderPlaylists(songs);
+    showView("home-view");
+});
+
+// Profile and Settings
+profileBtn.addEventListener("click", () => {
+    profileMenu.classList.toggle("show");
+});
+
+logoutBtn.addEventListener("click", () => {
+    localStorage.removeItem("loggedInUser");
+    localStorage.removeItem("playbackState");
+    loginPage.style.display = "flex";
+    appContainer.style.display = "none";
+    loggedInUser = null;
+    audio.pause();
+});
+
+profileLink.addEventListener("click", (event) => {
+    event.preventDefault();
+    renderProfile();
+    profileMenu.classList.remove("show");
+});
+
+settingsLink.addEventListener("click", (event) => {
+    event.preventDefault();
+    renderSettings();
+    profileMenu.classList.remove("show");
+});
+
+// Login and Sign-up
+loginForm.addEventListener("submit", (e) => {
+    e.preventDefault();
     const username = usernameInput.value.trim();
     const password = passwordInput.value.trim();
+    const storedPassword = getUserCredentials(username);
 
-    // Check against the hardcoded credentials
-    if (username === "Mziza" && password === "12345678") {
-        localStorage.setItem('loggedInUser', "Mziza");
-        errorMessage.style.display = 'none';
-        checkLoginStatus();
+    if (storedPassword === password) {
+        localStorage.setItem('loggedInUser', username);
+        loggedInUser = username;
+        showMainApp();
     } else {
-        errorMessage.textContent = 'Wrong username or password.';
-        errorMessage.style.display = 'block';
+        errorMessage.textContent = "Invalid username or password.";
+        errorMessage.style.display = "block";
     }
 });
 
-// 7. Initial Call & Authentication Check
+signupForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const username = signupUsernameInput.value.trim();
+    const password = signupPasswordInput.value.trim();
+    if (getUserCredentials(username)) {
+        signupErrorMessage.textContent = "Username already exists. Please choose a different one.";
+        signupErrorMessage.style.display = "block";
+    } else {
+        saveUserCredentials(username, password);
+        alert("Account created successfully! You can now log in.");
+        loginFormContainer.style.display = "block";
+        signupFormContainer.style.display = "none";
+        signupUsernameInput.value = "";
+        signupPasswordInput.value = "";
+    }
+});
+
+showSignupLink.addEventListener("click", (e) => {
+    e.preventDefault();
+    loginFormContainer.style.display = "none";
+    signupFormContainer.style.display = "block";
+});
+
+showLoginLink.addEventListener("click", (e) => {
+    e.preventDefault();
+    loginFormContainer.style.display = "block";
+    signupFormContainer.style.display = "none";
+});
+
+// Helper functions for UI
+function showMainApp() {
+    loginPage.style.display = "none";
+    appContainer.style.display = "flex";
+    profileNameEl.textContent = loggedInUser;
+    mainTitle.textContent = "Good Evening";
+    fetchSongsFromAPI("Ed Sheeran");
+    loadPlaybackState();
+    updateVolumeFromSettings();
+}
+
 function checkLoginStatus() {
     loggedInUser = localStorage.getItem('loggedInUser');
     if (loggedInUser) {
-        loginPage.style.display = 'none';
-        appContainer.style.display = 'block';
-        profileNameEl.textContent = loggedInUser;
-        loadPlaybackState();
+        showMainApp();
     } else {
-        loginPage.style.display = 'flex';
-        appContainer.style.display = 'none';
-        usernameInput.value = '';
-        passwordInput.value = '';
+        loginPage.style.display = "flex";
+        appContainer.style.display = "none";
     }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-    checkLoginStatus();
+function updateVolumeFromSettings() {
+    const savedVolume = settingsVolumeControl.value;
+    volumeSlider.value = savedVolume;
+    audio.volume = savedVolume / 100;
+}
+
+// Close dropdown menus when clicking outside
+window.addEventListener('click', (event) => {
+    if (activeMenu && !event.target.closest('.playlist')) {
+        activeMenu.classList.remove('visible');
+        activeMenu = null;
+    }
 });
 
-// Update the volume slider on the settings page
-settingsVolumeControl.addEventListener('input', (event) => {
-    audio.volume = event.target.value / 100;
-    volumeSlider.value = event.target.value;
+// Responsive Logic
+function handleResponsiveUI() {
+    if (window.innerWidth <= 768) {
+        // Mobile view
+        sidebar.classList.add('hidden');
+        hamburgerMenu.style.display = 'block';
+    } else {
+        // Desktop view
+        sidebar.classList.remove('hidden');
+        hamburgerMenu.style.display = 'none';
+    }
+}
+
+hamburgerMenu.addEventListener('click', () => {
+    sidebar.classList.toggle('hidden');
 });
 
-// Make sure the main music player volume slider updates the settings slider
-volumeSlider.addEventListener('input', (event) => {
-    audio.volume = event.target.value / 100;
-    settingsVolumeControl.value = event.target.value;
-});
+// Initial calls
+window.addEventListener('DOMContentLoaded', checkLoginStatus);
+window.addEventListener('load', handleResponsiveUI);
+window.addEventListener('resize', handleResponsiveUI);
 
-homeLink.addEventListener('click', (event) => {
-    event.preventDefault();
-    currentView = 'home';
-    showView("home-view");
-    mainTitle.textContent = 'Good Evening';
-    fetchSongsFromAPI("Ed Sheeran");
+// Additional event listener for the settings volume control
+settingsVolumeControl.addEventListener("input", (e) => {
+    const volume = e.target.value;
+    volumeSlider.value = volume;
+    audio.volume = volume / 100;
 });
-
-likedSongsLink.addEventListener('click', (event) => {
-    event.preventDefault();
-    currentView = 'likedSongs';
-    showView("home-view");
-    mainTitle.textContent = 'Liked Songs';
-    songs = getSongsFromLocalStorage('likedSongs');
-    renderPlaylists(songs);
-});
-
-libraryLink.addEventListener('click', (event) => {
-    event.preventDefault();
-    currentView = 'library';
-    showView("home-view");
-    mainTitle.textContent = 'Your Library';
-    songs = getSongsFromLocalStorage('myMusicLibrary');
-    renderPlaylists(songs);
-});
-
-// Save playback state before the user leaves the page
-window.addEventListener('beforeunload', savePlaybackState);

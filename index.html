@@ -33,7 +33,29 @@
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            z-index: 100; /* Ensure sidebar is on top */
+            z-index: 100;
+            transition: transform 0.3s ease-in-out;
+        }
+
+        /* Mobile Sidebar */
+        .sidebar.hidden {
+            transform: translateX(-100%);
+        }
+
+        /* Hamburger menu button */
+        .hamburger-menu {
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            background: #1db954;
+            border: none;
+            color: white;
+            font-size: 24px;
+            padding: 5px 10px;
+            border-radius: 5px;
+            z-index: 101;
+            display: none; /* Hidden by default on desktop */
+            cursor: pointer;
         }
 
         .logo {
@@ -87,13 +109,16 @@
         .search-container {
             display: flex;
             align-items: center;
+            flex-grow: 1;
+            margin-right: 20px;
         }
 
         .search-bar {
             padding: 8px 12px;
             border-radius: 20px;
             border: none;
-            width: 250px;
+            width: 100%;
+            max-width: 250px;
             outline: none;
         }
 
@@ -194,11 +219,17 @@
             font-size: 14px;
             font-weight: bold;
             margin-bottom: 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .playlist-desc {
             font-size: 12px;
             color: #b3b3b3;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         /* Play Button */
@@ -458,21 +489,125 @@
         .profile-view .artist-item span {
             font-weight: bold;
         }
+
+        /* --- MEDIA QUERIES FOR RESPONSIVENESS --- */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 70%;
+                max-width: 250px;
+                transform: translateX(-100%);
+                padding-top: 60px; /* Make space for the hamburger menu */
+            }
+
+            .main-content {
+                margin-left: 0;
+            }
+
+            .top-bar {
+                flex-direction: column;
+                align-items: flex-start;
+                padding-left: 60px;
+            }
+            
+            .search-container {
+                width: 100%;
+                margin-bottom: 15px;
+                flex-grow: 0;
+            }
+
+            .search-bar {
+                max-width: none;
+            }
+
+            .profile-container {
+                width: 100%;
+                display: flex;
+                justify-content: flex-end;
+            }
+            
+            .profile {
+                margin-top: -50px;
+            }
+
+            .profile-menu {
+                top: 35px;
+            }
+
+            .playlists {
+                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+                gap: 15px;
+            }
+
+            .playlist:hover .play-button {
+                opacity: 1; /* Always show play button on mobile */
+                bottom: 20px;
+                right: 15px;
+                transform: none;
+            }
+
+            .playlist:hover {
+                transform: none;
+            }
+
+            .music-player {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .song-info, .controls, .volume {
+                flex: none;
+                width: 100%;
+                justify-content: center;
+                margin-bottom: 10px;
+            }
+
+            .controls {
+                order: 1;
+            }
+
+            .song-info {
+                order: 2;
+            }
+            
+            .volume {
+                order: 3;
+            }
+            
+            .hamburger-menu {
+                display: block; /* Show on small screens */
+            }
+        }
     </style>
 </head>
 <body>
-    <div id="login-page" class="login-page" style="display: none;">
-        <h2>Log in to Spotify Clone</h2>
-        <form id="login-form" class="login-form">
-            <input type="text" id="username" placeholder="Username" required>
-            <input type="password" id="password" placeholder="Password" required>
-            <button type="submit">Log In</button>
-            <p id="error-message" style="color: red; margin-top: 10px; display: none;">Wrong username or password.</p>
-        </form>
-    </div>
+    <div id="login-page" class="login-page">
+        <div id="login-form-container">
+            <h2>Log In to Spotify Clone</h2>
+            <form id="login-form" class="login-form">
+                <input type="text" id="username" placeholder="Username" required>
+                <input type="password" id="password" placeholder="Password" required>
+                <button type="submit">Log In</button>
+                <p id="error-message" style="color: red; margin-top: 10px; display: none;"></p>
+                <p>Don't have an account? <a href="#" id="show-signup-link">Sign Up</a></p>
+            </form>
+        </div>
 
-    <div id="app-container">
-        <div class="sidebar">
+        <div id="signup-form-container" style="display: none;">
+            <h2>Sign Up for Spotify Clone</h2>
+            <form id="signup-form" class="login-form">
+                <input type="text" id="signup-username" placeholder="Choose a Username" required>
+                <input type="password" id="signup-password" placeholder="Choose a Password" required>
+                <button type="submit">Sign Up</button>
+                <p id="signup-error-message" style="color: red; margin-top: 10px; display: none;"></p>
+                <p>Already have an account? <a href="#" id="show-login-link">Log In</a></p>
+            </form>
+        </div>
+    </div>
+    
+    <button class="hamburger-menu" id="hamburger-menu">☰</button>
+
+    <div id="app-container" style="display: none;">
+        <div class="sidebar" id="sidebar">
             <div>
                 <h1 class="logo">Spotify</h1>
                 <ul class="nav-links">
@@ -518,7 +653,7 @@
                     <p>Welcome, <strong id="profile-welcome-name"></strong>!</p>
                     <h3>Top Artists</h3>
                     <div class="artist-list">
-                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -546,19 +681,19 @@
 
             <div class="controls">
                 <div class="control-buttons">
-                    <button>⏮</button>
-                    <button>▶</button>
-                    <button>⏭</button>
+                    <button id="prev-btn">⏮</button>
+                    <button id="play-pause-btn">▶</button>
+                    <button id="next-btn">⏭</button>
                 </div>
                 <div class="progress-bar">
-                    <span>0:00</span>
-                    <input type="range" min="0" max="100" value="0">
-                    <span>0:00</span>
+                    <span id="current-time">0:00</span>
+                    <input type="range" id="progress-bar" min="0" max="100" value="0">
+                    <span id="duration">0:00</span>
                 </div>
             </div>
 
             <div class="volume">
-                <p>🔊</p> <input type="range" min="0" max="100" value="80">
+                <p>🔊</p> <input type="range" id="volume-slider" min="0" max="100" value="80">
             </div>
         </div>
         
